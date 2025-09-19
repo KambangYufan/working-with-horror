@@ -1,6 +1,9 @@
 import { express, type Request, type Response } from "../deps.ts";
 import { authMiddleware } from "../middleware/auth.ts";
-import { getWeekendForecast } from "../services/weather/openWeather.ts";
+import {
+    getWeekendForecast,
+    isAccuWeatherError,
+} from "../services/weather/openWeather.ts";
 import { createSupabaseForRequest } from "../supabaseClient.ts";
 
 const router = express.Router();
@@ -31,6 +34,15 @@ router.get(
             res.json(forecast);
         } catch (e) {
             console.error("weather GET failed:", e);
+            if (isAccuWeatherError(e)) {
+                return res.status(e.httpStatus).json({
+                    error: e.message,
+                    reason: e.reason,
+                    ...(typeof e.upstreamStatus === "number"
+                        ? { upstreamStatus: e.upstreamStatus }
+                        : {}),
+                });
+            }
             return res.status(500).json({ error: "Internal server error" });
         }
 });
