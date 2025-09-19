@@ -1,8 +1,10 @@
 import { express, type Request, type Response } from "../deps.ts";
-import { createClient } from "../deps.ts";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../config/env.ts";
 import { authMiddleware } from "../middleware/auth.ts";
-import { getWeekendForecast } from "../services/weather/openWeather.ts";
+import {
+    getWeekendForecast,
+    isAccuWeatherError,
+} from "../services/weather/openWeather.ts";
+import { createSupabaseForRequest } from "../supabaseClient.ts";
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -16,11 +18,7 @@ router.get(
                 return res.status(401).json({ error: "Missing token" });
             };
 
-            // Create a Supabase client that acts AS THIS USER
-                const supabaseLoggedIn = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-                    auth: { persistSession: false, autoRefreshToken: false },
-                    global: { headers: { Authorization: authz } }, // important key line
-                });
+            const supabaseLoggedIn = createSupabaseForRequest(req);
 
             const { data, error } = await supabaseLoggedIn
                 .from("campsites")
@@ -36,6 +34,15 @@ router.get(
             res.json(forecast);
         } catch (e) {
             console.error("weather GET failed:", e);
+            if (isAccuWeatherError(e)) {
+                return res.status(e.httpStatus).json({
+                    error: e.message,
+                    reason: e.reason,
+                    ...(typeof e.upstreamStatus === "number"
+                        ? { upstreamStatus: e.upstreamStatus }
+                        : {}),
+                });
+            }
             return res.status(500).json({ error: "Internal server error" });
         }
 });
