@@ -1,0 +1,82 @@
+{
+    "info": {
+        "name": "Camping Advisor – Auth",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Register",
+            "request": {
+                "method": "POST",
+                "header": [
+                    { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": "{{baseUrl}}/auth/register",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\"email\":\"{{email}}\",\"password\":\"{{password}}\"}"
+                }
+            },
+            "event": [
+                {
+                "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('returns 200 or 201', () => pm.expect(pm.response.code).to.be.oneOf([200,201]));",
+                            "pm.test('responds with JSON', () => pm.response.to.be.json);",
+                            "const json = pm.response.json();",
+                            "pm.test('includes user id', () => pm.expect(json).to.have.nested.property('user.id'));"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Login",
+            "request": {
+                "method": "POST",
+                "header": [
+                    { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": "{{baseUrl}}/auth/login",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\"email\":\"{{email}}\",\"password\":\"{{password}}\"}"
+                }
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('returns 200 OK', () => pm.response.to.have.status(200));",
+                            "pm.test('responds with JSON', () => pm.response.to.be.json);",
+                            "const json = pm.response.json();",
+                            "pm.test('gets access token', () => pm.expect(json).to.have.nested.property('session.access_token'));",
+                            "pm.environment.set('token', json.session.access_token);"
+                        ]
+                    }
+                }
+            ]
+        }
+    ],
+    "event": [
+        {
+        "listen": "prerequest",
+        "script": {
+            "type": "text/javascript",
+            "exec": [
+            "const token = pm.environment.get('token');",
+            "if (token) {",
+            "  pm.request.headers.add({ key: 'Authorization', value: `Bearer ${token}` });",
+            "} else {",
+            "  pm.request.headers.remove('Authorization');",
+            "}"
+            ]
+        }
+        }
+    ],
+    "variable": []
+}

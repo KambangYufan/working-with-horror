@@ -137,3 +137,9 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# what I have added to this
+node_modules/
+dist/
+.DS_Store
+backend/deno.lock

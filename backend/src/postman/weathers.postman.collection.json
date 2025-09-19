@@ -1,0 +1,117 @@
+{
+    "info": {
+        "name": "Camping Advisor – Weather (AccuWeather helper)",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        "description": "Tests for GET /weather/:campsiteId which uses the AccuWeather-backed getWeekendForecast."
+    },
+    "item": [
+        {
+            "name": "Get weather (happy path)",
+            "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/weather/{{campsite_id}}"
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// Ensure we actually have a campsite id first",
+                            "pm.test('campsite_id is set', function () {",
+                            "  pm.expect(pm.environment.get('campsite_id'), 'missing campsite_id').to.exist;",
+                            "});",
+                            "",
+                            "// Status & JSON",
+                            "pm.test('returns 200 OK', () => pm.response.to.have.status(200));",
+                            "pm.test('responds with JSON', () => pm.response.to.be.json);",
+                            "const body = pm.response.json();",
+                            "",
+                            "// Shape assertions",
+                            "pm.test('has goodWeather boolean', () => pm.expect(body.goodWeather).to.be.a('boolean'));",
+                            "pm.test('has daily array', () => pm.expect(body.daily).to.be.an('array'));",
+                            "pm.test('has alerts array', () => pm.expect(body.alerts).to.be.an('array'));",
+                            "",
+                            "// Optional: if we got at least one day, check a couple of fields",
+                            "if (Array.isArray(body.daily) && body.daily.length) {",
+                            "  pm.test('daily[0] has temp.day (number)', () => pm.expect(body.daily[0]?.temp?.day).to.be.a('number'));",
+                            "  pm.test('daily[0] pop is number or undefined', () => {",
+                            "    const p = body.daily[0]?.pop;",
+                            "    pm.expect([undefined, 'number'].includes(typeof p), 'pop must be number or undefined').to.be.true;",
+                            "  });",
+                            "}"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Get weather without token (negative)",
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                        "// Force remove Authorization for this request only",
+                        "pm.request.headers.remove('Authorization');"
+                        ]
+                    }
+                },
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                        "pm.test('returns 401 when missing token', () => pm.response.to.have.status(401));",
+                        "pm.test('is JSON error payload', () => pm.response.to.be.json);",
+                        "pm.test('has error message', () => pm.expect(pm.response.json()).to.have.property('error'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/weather/{{campsite_id}}"
+            }
+        },
+        {
+        "name": "Get weather random id (negative 404)",
+        "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/weather/{{$uuid}}"
+        },
+        "event": [
+            {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                "pm.test('returns 404 for unknown campsite', () => pm.response.to.have.status(404));",
+                "pm.test('is JSON error payload', () => pm.response.to.be.json);",
+                "pm.test('has error message', () => pm.expect(pm.response.json()).to.have.property('error'));"
+                ]
+            }
+            }
+        ]
+        }
+    ],
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "// Add Authorization header from environment token for all requests by default",
+                    "const token = pm.environment.get('token');",
+                    "if (token) {",
+                    "  pm.request.headers.add({ key: 'Authorization', value: `Bearer ${token}` });",
+                    "} else {",
+                    "  pm.request.headers.remove('Authorization');",
+                    "}"
+                ]
+            }
+        }
+    ],
+    "variable": []
+}

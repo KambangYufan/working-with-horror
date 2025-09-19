@@ -1,0 +1,42 @@
+{
+    "info": {
+        "name": "Camping Advisor",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+        "name": "Register",
+        "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/register",
+            "body": { "mode": "raw", "raw": "{\"email\":\"test@domain.com\",\"password\":\"secret123\"}" }
+        }
+        },
+        {
+        "name": "Login",
+        "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/login",
+            "body": { "mode": "raw", "raw": "{\"email\":\"test@domain.com\",\"password\":\"secret123\"}" }
+        }
+        },
+        {
+        "name": "Create campsite",
+        "request": {
+            "method": "POST",
+            "header": [
+            { "key": "Content-Type", "value": "application/json" },
+            { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/campsites",
+            "body": { "mode": "raw", "raw": "{\"name\":\"Test\",\"lat\":51.5,\"lon\":-0.1}" }
+        }
+        }
+    ],
+    "variable": [
+        { "key": "baseUrl", "value": "http://localhost:8000" },
+        { "key": "token", "value": "" }
+    ]
+}

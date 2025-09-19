@@ -1,0 +1,114 @@
+{
+    "info": {
+        "name": "Camping Advisor – Favourites",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+        "name": "Add favourite",
+        "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/favourites/{{campsite_id}}"
+        },
+        "event": [
+            {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                "pm.test('returns 200 OK', () => pm.response.to.have.status(200));",
+                "pm.test('responds with JSON', () => pm.response.to.be.json);",
+                "pm.test('includes favourite id', () => pm.expect(pm.response.json()).to.have.property('id'));"
+                ]
+            }
+            }
+        ]
+        },
+        {
+        "name": "List favourites",
+        "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/favourites"
+        },
+        "event": [
+            {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                "pm.test('returns 200 OK', () => pm.response.to.have.status(200));",
+                "pm.test('responds with JSON', () => pm.response.to.be.json);",
+                "pm.test('returns array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+            }
+            }
+        ]
+        },
+        {
+        "name": "Remove favourite",
+        "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/favourites/{{campsite_id}}"
+        },
+        "event": [
+            {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                "pm.test('returns 200 OK', () => pm.response.to.have.status(200));",
+                "pm.test('responds with JSON', () => pm.response.to.be.json);",
+                "pm.test('acknowledges deletion', () => pm.expect(pm.response.json()).to.deep.equal({ ok: true }));"
+                ]
+            }
+            }
+        ]
+        },
+        {
+        "name": "Subscribe to alerts",
+        "request": {
+            "method": "POST",
+            "header": [
+            { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/favourites/alerts/subscribe",
+            "body": {
+            "mode": "raw",
+            "raw": "{\"campsite_id\":\"{{campsite_id}}\",\"alert_type\":\"weather\"}"
+            }
+        },
+        "event": [
+            {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                "pm.test('returns 200 OK', () => pm.response.to.have.status(200));",
+                "pm.test('responds with JSON', () => pm.response.to.be.json);",
+                "const json = pm.response.json();",
+                "pm.test('includes alert id', () => pm.expect(json).to.have.property('id'));",
+                "pm.test('links to campsite', () => pm.expect(json).to.have.property('campsite_id', pm.environment.get('campsite_id')));"
+                ]
+            }
+            }
+        ]
+        }
+    ],
+    "event": [
+        {
+        "listen": "prerequest",
+        "script": {
+            "type": "text/javascript",
+            "exec": [
+            "const token = pm.environment.get('token');",
+            "if (token) {",
+            "  pm.request.headers.add({ key: 'Authorization', value: `Bearer ${token}` });",
+            "} else {",
+            "  pm.request.headers.remove('Authorization');",
+            "}"
+            ]
+        }
+        }
+    ],
+    "variable": []
+}
