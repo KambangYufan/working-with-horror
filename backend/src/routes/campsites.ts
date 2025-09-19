@@ -1,5 +1,5 @@
 import { express, z, type Request, type Response } from "../deps.ts";
-import { publicAuthClient } from "../supabaseClient.ts";
+import { createSupabaseForRequest } from "../supabaseClient.ts";
 import { authMiddleware } from "../middleware/auth.ts";
 import { searchCampsites } from "../services/places/geoapify.ts";
 import { NoParams } from "../types/http.ts";
@@ -27,7 +27,8 @@ router.post(
             return res.status(400).json(parsed.error);
         };
 
-        const { data, error } = await publicAuthClient
+        const supabase = createSupabaseForRequest(req);
+        const { data, error } = await supabase
             .from("campsites")
             .insert({ ...parsed.data, user_id: req.user.id })
             .select()
@@ -44,7 +45,8 @@ router.post(
 router.get(
     "/",
     async (req: Request, res: Response) => {
-        const { data, error } = await publicAuthClient
+        const supabase = createSupabaseForRequest(req);
+        const { data, error } = await supabase
             .from("campsites")
             .select("*")
             .eq("user_id", req.user.id);
@@ -69,7 +71,8 @@ router.get(
 router.get(
     "/:id",
     async (req: Request<{ id: string }>, res: Response) => {
-        const { data, error } = await publicAuthClient
+        const supabase = createSupabaseForRequest(req);
+        const { data, error } = await supabase
             .from("campsites")
             .select("*")
             .eq("id", req.params.id)
@@ -91,7 +94,8 @@ router.put(
             return res.status(400).json(parsed.error);
         };
 
-        const { data, error } = await publicAuthClient
+        const supabase = createSupabaseForRequest(req);
+        const { data, error } = await supabase
             .from("campsites")
             .update(parsed.data)
             .eq("id", req.params.id)
@@ -109,7 +113,8 @@ router.put(
 router.delete(
     "/:id",
     async (req: Request<{ id: string }>, res: Response) => {
-        const { error } = await publicAuthClient
+        const supabase = createSupabaseForRequest(req);
+        const { error } = await supabase
             .from("campsites")
             .delete()
             .eq("id", req.params.id)
