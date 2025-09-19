@@ -32,20 +32,108 @@ type Accu5Day = {
 };
 type AccuAlert = unknown[]; // pass through; shape varies by region/plan
 
+export type AccuWeatherErrorReason =
+    | "accuweather-auth"
+    | "accuweather-plan"
+    | "accuweather-unavailable"
+    | "accuweather-error";
+
+export class AccuWeatherError extends Error {
+    public readonly reason: AccuWeatherErrorReason;
+    public readonly httpStatus: number;
+    public readonly upstreamStatus?: number;
+    public readonly upstreamResponse?: string;
+
+    constructor(
+        message: string,
+        reason: AccuWeatherErrorReason,
+        options: { httpStatus?: number; upstreamStatus?: number; upstreamResponse?: string } = {},
+    ) {
+        super(message);
+        this.name = "AccuWeatherError";
+        this.reason = reason;
+        this.httpStatus = options.httpStatus ?? (reason === "accuweather-unavailable" ? 503 : 502);
+        this.upstreamStatus = options.upstreamStatus;
+        this.upstreamResponse = options.upstreamResponse;
+    }
+}
+
+export function isAccuWeatherError(error: unknown): error is AccuWeatherError {
+    return error instanceof AccuWeatherError;
+}
+
+function reasonFromStatus(status: number): AccuWeatherErrorReason {
+    if (status === 401) {
+        return "accuweather-auth";
+    }
+    if (status === 403 || status === 429 || status === 402) {
+        return "accuweather-plan";
+    }
+    if (status >= 500) {
+        return "accuweather-unavailable";
+    }
+    return "accuweather-error";
+}
+
+function messageForReason(
+    reason: AccuWeatherErrorReason,
+    context: string,
+    status?: number,
+): string {
+    switch (reason) {
+        case "accuweather-auth":
+            return `AccuWeather rejected the configured API key while requesting ${context}. Check the ACCUWEATHER_API_KEY environment variable.`;
+        case "accuweather-plan":
+            return `AccuWeather denied the ${context} request for this account's plan or quota.`;
+        case "accuweather-unavailable":
+            return `AccuWeather was unavailable while requesting ${context}.`;
+        default:
+            return status
+                ? `AccuWeather returned status ${status} for the ${context} request.`
+                : `AccuWeather returned an unexpected response for the ${context} request.`;
+    }
+}
+
+async function accuFetch(url: string, context: string): Promise<Response> {
+    let response: Response;
+    try {
+        response = await fetch(url);
+    } catch (_error) {
+        throw new AccuWeatherError(
+            messageForReason("accuweather-unavailable", context),
+            "accuweather-unavailable",
+        );
+    }
+
+    if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        const reason = reasonFromStatus(response.status);
+        throw new AccuWeatherError(
+            messageForReason(reason, context, response.status),
+            reason,
+            {
+                upstreamStatus: response.status,
+                upstreamResponse: body,
+            },
+        );
+    }
+
+    return response;
+}
+
 // 1) lat/lon -> location key
 async function getLocationKey(lat: number, lon: number): Promise<string> {
     const url =
         `${ACCU_BASE}/locations/v1/cities/geoposition/search` +
         `?apikey=${ACCUWEATHER_API_KEY}&q=${lat},${lon}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`Accu location error ${res.status}: ${text}`);
-    }
+    const res = await accuFetch(url, "location search");
     const json = (await res.json()) as AccuLocation | null;
     if (!json?.Key) {
-        throw new Error("Accu location lookup returned no Key");
-    };
+        throw new AccuWeatherError(
+            "AccuWeather location lookup returned no Key.",
+            "accuweather-error",
+        );
+    }
     return json.Key;
 }
 
@@ -54,24 +142,14 @@ async function get5DayForecast(locationKey: string): Promise<Accu5Day> {
     const url =
         `${ACCU_BASE}/forecasts/v1/daily/5day/${locationKey}` +
         `?apikey=${ACCUWEATHER_API_KEY}&metric=true&details=true`;
-    const res = await fetch(url);
-    if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`Accu 5-day error ${res.status}: ${text}`);
-    }
+    const res = await accuFetch(url, "5 day forecast");
     return (await res.json()) as Accu5Day;
 }
 
 // 3) Active alerts (will be [] if none)
 async function getActiveAlerts(locationKey: string): Promise<AccuAlert> {
     const url = `${ACCU_BASE}/alerts/v1/${locationKey}?apikey=${ACCUWEATHER_API_KEY}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-        // Some regions/tiers may not have alerts; treat non-200 as “no alerts” but log once
-        const text = await res.text().catch(() => "");
-        console.warn("Accu alerts warning:", res.status, text);
-        return [];
-    }
+    const res = await accuFetch(url, "active alerts");
     return (await res.json()) as AccuAlert;
 }
 
